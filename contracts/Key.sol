@@ -82,8 +82,9 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
     function mint(address to, IUnlock.KeyData memory keyData)
         public
         factoryOnly
+        returns (uint256 tokenId)
     {
-        _mint(to, keyData);
+        return _mint(to, keyData);
     }
 
     function _mint(address to, IUnlock.KeyData memory data)

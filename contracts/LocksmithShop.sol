@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IUnlock} from "./IUnlock.sol";
+import {ContentKey} from "./Key.sol";
 
 interface ILocksmithShop {
     function setAsk(string memory _hash, IUnlock.Ask memory _newAsk) external;
@@ -25,12 +26,13 @@ interface ILocksmithShop {
         IUnlock.Ask memory _newAsk,
         IUnlock.KeyData memory keyData,
         IUnlock.EIP712Signature memory sig
-    ) external returns (uint256 tokenId);
+    ) external;
 }
 
 contract LocksmithShop is ILocksmithShop {
     using SafeERC20 for IERC20;
     mapping(string => IUnlock.Ask) public asks;
+    mapping(string => IUnlock.KeyData) public keyDatas;
 
     // For EIP-712
     bytes32 public DOMAIN_SEPARATOR;
@@ -43,7 +45,9 @@ contract LocksmithShop is ILocksmithShop {
     // provide a offline signature for setting A New Lock(Content)
     mapping(address => bool) public isLocksmith;
 
-    constructor() {
+    ContentKey public key;
+
+    constructor(address keyAddress) {
         uint256 _chainId = getChainId();
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
@@ -56,6 +60,7 @@ contract LocksmithShop is ILocksmithShop {
                 address(this)
             )
         );
+        key = ContentKey(keyAddress);
     }
 
     modifier isAskExist(string memory _hash) {
@@ -90,6 +95,7 @@ contract LocksmithShop is ILocksmithShop {
         );
 
         // mint the new key
+        _mint(msg.sender, _hash);
     }
 
     modifier mustBeLockSmith() {
@@ -154,10 +160,29 @@ contract LocksmithShop is ILocksmithShop {
         IUnlock.Ask memory _newAsk,
         IUnlock.KeyData memory keyData,
         IUnlock.EIP712Signature memory sig
-    ) external override returns (uint256 tokenId) {
+    ) public override isGoodToSetAsk(keyData.contentHash) {
         require(
             verifyNewLockRequest(keyData, sig),
             "Locksmith::BAD_SIG: Please contact dev team"
         );
+        asks[keyData.contentHash] = _newAsk;
+        keyDatas[keyData.contentHash] = keyData;
+    }
+
+    function mintKey(address to, string memory _hash) public {
+        IUnlock.Ask memory ask = asks[_hash];
+        require(
+            ask.owner == msg.sender,
+            "Must be the owner to mintKey for free"
+        );
+        _mint(to, _hash);
+    }
+
+    function _mint(address to, string memory _hash)
+        internal
+        returns (uint256 tokenId)
+    {
+        IUnlock.KeyData memory keyData = keyDatas[_hash];
+        return key.mint(to, keyData);
     }
 }
