@@ -12,7 +12,7 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
     using EnumerableSet for EnumerableSet.UintSet;
     using Counters for Counters.Counter;
     using SafeMath for uint256;
-    mapping(uint256 => IUnlock.KeyData) public keyDatas;
+    mapping(uint256 => IUnlock.KeyData) public tokenIdToData;
     mapping(string => EnumerableSet.UintSet) internal _contentToTokenIds;
 
     // factory is the onlyone who can mint key
@@ -85,19 +85,19 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
         require(
             from == address(0) || // mint
                 to == address(0) || // or burn
-                keyDatas[tokenId].transferable, // or token is transferable
+                tokenIdToData[tokenId].transferable, // or token is transferable
             "The Creator disabled transfer for this key."
         );
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
-    function mint(
-        string memory _hash,
-        address to,
-        IUnlock.KeyData memory keyData
-    ) public factoryOnly returns (uint256 tokenId) {
+    function mint(address to, IUnlock.KeyData memory keyData)
+        public
+        factoryOnly
+        returns (uint256 tokenId)
+    {
         tokenId = _mint(to, keyData);
-        _contentToTokenIds[_hash].add(tokenId);
+        _contentToTokenIds[keyData.contentHash].add(tokenId);
     }
 
     function _mint(address to, IUnlock.KeyData memory data)
@@ -106,7 +106,7 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
     {
         tokenId = _tokenIdTracker.current();
         _safeMint(to, tokenId);
-        keyDatas[tokenId] = data;
+        tokenIdToData[tokenId] = data;
         _tokenIdTracker.increment();
     }
 
@@ -163,7 +163,7 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
         // valid deadline: now < deadline < (now + 1 days)
         // which means the signature should expired in no more than 1 day
         uint256 _now = block.timestamp;
-        IUnlock.KeyData memory keyData = keyDatas[tokenId];
+        IUnlock.KeyData memory keyData = tokenIdToData[tokenId];
         // throw error if the key was expired
         require(
             _now <= keyData.expireAt,
@@ -188,12 +188,14 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
     function listKeys(address who)
         public
         view
-        returns (uint256[] memory tokenIds)
+        returns (uint256[] memory tokenIds, IUnlock.KeyData[] memory data)
     {
         uint256 qty = balanceOf(who);
         tokenIds = new uint256[](qty);
+        data = new IUnlock.KeyData[](qty);
         for (uint256 i = 0; i < tokenIds.length; i++) {
             tokenIds[i] = tokenOfOwnerByIndex(who, i);
+            data[i] = tokenIdToData[tokenIds[i]];
         }
     }
 
