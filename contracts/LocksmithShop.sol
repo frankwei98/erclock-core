@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IUnlock} from "./IUnlock.sol";
+import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {ContentKey} from "./Key.sol";
 
 interface ILocksmithShop {
@@ -31,6 +32,7 @@ interface ILocksmithShop {
 
 contract LocksmithShop is ILocksmithShop {
     using SafeERC20 for IERC20;
+    using SafeMath for uint256;
     mapping(string => IUnlock.Ask) public asks;
     mapping(string => IUnlock.KeyData) public keyDatas;
 
@@ -47,7 +49,9 @@ contract LocksmithShop is ILocksmithShop {
 
     ContentKey public key;
 
-    constructor(address keyAddress) {
+    address public feeTo;
+
+    constructor(address keyAddress, address _feeTo) {
         uint256 _chainId = getChainId();
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
@@ -61,6 +65,7 @@ contract LocksmithShop is ILocksmithShop {
             )
         );
         key = ContentKey(keyAddress);
+        feeTo = _feeTo;
     }
 
     modifier isAskExist(string memory _hash) {
@@ -96,6 +101,13 @@ contract LocksmithShop is ILocksmithShop {
 
         // mint the new key
         _mint(msg.sender, _hash);
+
+        uint256 fee = ask.amount.mul(5).div(1000);
+        uint256 authorCut = ask.amount.sub(fee);
+
+        // sent the money
+        IERC20(ask.token).safeTransfer(feeTo, fee);
+        IERC20(ask.token).safeTransfer(ask.owner, authorCut);
     }
 
     modifier mustBeLockSmith() {
