@@ -10,17 +10,25 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
     using Counters for Counters.Counter;
     using SafeMath for uint256;
     mapping(uint256 => IUnlock.KeyData) public keyDatas;
+
+    // factory is the onlyone who can mint key
     address public factory;
+
+    // the tracker that decide the next tokenId
     Counters.Counter private _tokenIdTracker;
 
     // EIP-712 Related
     bytes32 public DOMAIN_SEPARATOR;
 
+    // Verify ownership with sig in chain
+    bytes32 public constant VERIFY_TYPEHASH =
+        keccak256("VerifyKeyHolder(uint256 tokenId,uint256 timestamp)");
+
+    // Meta Transaction for NFT transfer
     //keccak256("Permit(address spender,uint256 tokenId,uint256 nonce,uint256 deadline)");
     bytes32 public constant PERMIT_TYPEHASH =
         0x49ecf333e5b8c95c40fdafc95c1ad136e8914a8fb55e9dc8bb01eaa83a2df9ad;
-    bytes32 public constant VERIFY_TYPEHASH =
-        keccak256("VerifyKeyHolder(uint256 tokenId,uint256 timestamp)");
+
     mapping(address => mapping(uint256 => uint256)) public permitNonces;
 
     struct EIP712Signature {
@@ -147,8 +155,15 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
         uint256 tokenId,
         IUnlock.EIP712Signature memory sig
     ) public view returns (bool isSigValid) {
-        // now < deadline < (now + 1 days)
+        // valid deadline: now < deadline < (now + 1 days)
+        // which means the signature should expired in no more than 1 day
         uint256 _now = block.timestamp;
+        IUnlock.KeyData memory keyData = keyDatas[tokenId];
+        // throw error if the key was expired
+        require(
+            _now <= keyData.expireAt,
+            "ContentKey::verifyKeyHolder: The Key was expired"
+        );
         uint256 oneDaysLater = _now + 1 days;
         require(
             _now < sig.deadline && sig.deadline < oneDaysLater,
@@ -163,5 +178,17 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
         );
         address recoveredSigner = ecrecover(digest, sig.v, sig.r, sig.s);
         isSigValid = ownerOf(tokenId) == recoveredSigner;
+    }
+
+    function listKeys(address who)
+        public
+        view
+        returns (uint256[] memory tokenIds)
+    {
+        uint256 qty = balanceOf(who);
+        tokenIds = new uint256[](qty);
+        for (uint256 i = 0; i < tokenIds.length; i++) {
+            tokenIds[i] = tokenOfOwnerByIndex(who, i);
+        }
     }
 }
