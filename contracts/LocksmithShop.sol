@@ -195,6 +195,6 @@ contract LocksmithShop is ILocksmithShop {
         returns (uint256 tokenId)
     {
         IUnlock.KeyData memory keyData = keyDatas[_hash];
-        return key.mint(to, keyData);
+        return key.mint(_hash, to, keyData);
     }
 }

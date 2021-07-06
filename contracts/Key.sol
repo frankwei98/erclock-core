@@ -4,12 +4,16 @@ import {Counters} from "@openzeppelin/contracts/utils/Counters.sol";
 import {IUnlock} from "./IUnlock.sol";
 import {SafeMath} from "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/security/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 
 contract ContentKey is ERC721Enumerable, ReentrancyGuard {
+    // Add the library methods
+    using EnumerableSet for EnumerableSet.UintSet;
     using Counters for Counters.Counter;
     using SafeMath for uint256;
     mapping(uint256 => IUnlock.KeyData) public keyDatas;
+    mapping(string => EnumerableSet.UintSet) internal _contentToTokenIds;
 
     // factory is the onlyone who can mint key
     address public factory;
@@ -87,12 +91,13 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
         super._beforeTokenTransfer(from, to, tokenId);
     }
 
-    function mint(address to, IUnlock.KeyData memory keyData)
-        public
-        factoryOnly
-        returns (uint256 tokenId)
-    {
-        return _mint(to, keyData);
+    function mint(
+        string memory _hash,
+        address to,
+        IUnlock.KeyData memory keyData
+    ) public factoryOnly returns (uint256 tokenId) {
+        tokenId = _mint(to, keyData);
+        _contentToTokenIds[_hash].add(tokenId);
     }
 
     function _mint(address to, IUnlock.KeyData memory data)
@@ -189,6 +194,18 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
         tokenIds = new uint256[](qty);
         for (uint256 i = 0; i < tokenIds.length; i++) {
             tokenIds[i] = tokenOfOwnerByIndex(who, i);
+        }
+    }
+
+    function contentToTokenIds(string memory _hash)
+        public
+        view
+        returns (uint256[] memory tokenIds)
+    {
+        uint256 qty = _contentToTokenIds[_hash].length();
+        tokenIds = new uint256[](qty);
+        for (uint256 i = 0; i < qty; i++) {
+            tokenIds[i] = _contentToTokenIds[_hash].at(i);
         }
     }
 }
