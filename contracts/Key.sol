@@ -50,7 +50,7 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
                 keccak256(
                     "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
                 ),
-                keccak256(bytes("TokenLock")),
+                keccak256(bytes("ContentKey")),
                 keccak256(bytes("1")),
                 _chainId,
                 address(this)
