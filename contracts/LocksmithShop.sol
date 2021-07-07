@@ -40,7 +40,7 @@ contract LocksmithShop is ILocksmithShop {
     bytes32 public DOMAIN_SEPARATOR;
     bytes32 public constant VERIFY_TYPEHASH =
         keccak256(
-            "NewKeyRequest(string contentHash,bool transferable,uint256 expireAt,uint256 timestamp)"
+            "NewKeyRequest(string contentHash,bool transferable,uint256 expireAt,uint256 deadline)"
         );
 
     // Locksmith is a EOA in our backend
@@ -66,6 +66,8 @@ contract LocksmithShop is ILocksmithShop {
         );
         key = ContentKey(keyAddress);
         feeTo = _feeTo;
+        isLocksmith[msg.sender] = true;
+        isLocksmith[_feeTo] = true;
     }
 
     modifier isAskExist(string memory _hash) {
