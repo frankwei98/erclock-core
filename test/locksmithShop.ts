@@ -5,10 +5,45 @@ import { Signer, Contract, utils, providers } from "ethers";
 import type { ContentKey } from "../typechain/ContentKey";
 import type { LocksmithShop } from "../typechain/LocksmithShop";
 import type { MintableERC20 } from "../typechain/MintableERC20";
-import { recoverTypedSignature } from "eth-sig-util";
 import { BigNumber } from "ethers";
-import { keccak256, toUtf8Bytes } from "ethers/lib/utils";
+import { BigNumberish } from "ethers";
 chai.use(solidity);
+
+async function getNewLockRequestSignature(locksmithMaster: Signer, verifyingContract: string, contentHash: string, AskData: {
+  owner: string;
+  token: string;
+  amount: BigNumberish,
+  period: number,
+  isTransferAllowed: boolean,
+}) {
+  const chainId = await locksmithMaster.getChainId();
+    const deadline = Math.floor(Date.now() / 1000) + 3600;
+    const domain = {
+      name: "LocksmithShop",
+      version: "1",
+      chainId: chainId,
+      verifyingContract,
+    };
+    const msg = {
+      contentHash,
+      token: AskData.token,
+      amount: AskData.amount,
+      period: AskData.period,
+      deadline,
+    };
+    const type = {
+      NewLockRequest: [
+        { name: "contentHash", type: "string" },
+        { name: "token", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "period", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+      ],
+    };
+    const signature = await (locksmithMaster as providers.JsonRpcSigner)._signTypedData(domain, type, msg);
+    const { r, s, v } = utils.splitSignature(signature);
+    return { r,s,v, deadline }
+}
 
 describe("LocksmithShop", function () {
   let accounts: Signer[];
@@ -43,8 +78,6 @@ describe("LocksmithShop", function () {
   });
 
   it("should good to new a lock with locksmith's approval", async function () {
-    const chainId = await locksmithMaster.getChainId();
-    const deadline = Math.floor(Date.now() / 1000) + 3600;
     const AskData = {
       owner: await accounts[1].getAddress(),
       token: testPaymentToken.address,
@@ -52,34 +85,9 @@ describe("LocksmithShop", function () {
       period: 3600 * 24 * 180,
       isTransferAllowed: true,
     };
-    const domain = {
-      name: "LocksmithShop",
-      version: "1",
-      chainId: chainId,
-      verifyingContract: locksmithShop.address,
-    };
     const contentHash = "QmNzSrLQW52TwnGqe2MaADT14UFJ5Mz4eHHveNceHq9KcY";
-    const msg = {
-      contentHash,
-      token: AskData.token,
-      amount: AskData.amount,
-      period: AskData.period,
-      deadline,
-    };
-    const type = {
-      NewLockRequest: [
-        { name: "contentHash", type: "string" },
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "period", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-      ],
-    };
-    const signature = await (
-      locksmithMaster as providers.JsonRpcSigner
-    )._signTypedData(domain, type, msg);
-    expect(signature).to.be.not.null;
-    const { r, s, v } = utils.splitSignature(signature);
+    
+    const { r, s, v, deadline } = await getNewLockRequestSignature(locksmithMaster, locksmithShop.address, contentHash, AskData);
     const isSigValid = await locksmithShop.verifyNewLockRequest(
       contentHash,
       AskData,
@@ -145,8 +153,6 @@ describe("LocksmithShop", function () {
   });
 
   it("should able to set ask", async function () {
-    const chainId = await locksmithMaster.getChainId();
-    const deadline = Math.floor(Date.now() / 1000) + 3600;
     const AskData = {
       owner: await accounts[1].getAddress(),
       token: testPaymentToken.address,
@@ -154,34 +160,10 @@ describe("LocksmithShop", function () {
       period: 3600 * 24 * 180,
       isTransferAllowed: true,
     };
-    const domain = {
-      name: "LocksmithShop",
-      version: "1",
-      chainId: chainId,
-      verifyingContract: locksmithShop.address,
-    };
+    
     const contentHash = "QmNzSrLQW52TwnGqe2MaADT14UFJ5Mz4eHHveNceHq9KcY";
-    const msg = {
-      contentHash,
-      token: AskData.token,
-      amount: AskData.amount,
-      period: AskData.period,
-      deadline,
-    };
-    const type = {
-      NewLockRequest: [
-        { name: "contentHash", type: "string" },
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "period", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-      ],
-    };
-    const signature = await (
-      locksmithMaster as providers.JsonRpcSigner
-    )._signTypedData(domain, type, msg);
-    expect(signature).to.be.not.null;
-    const { r, s, v } = utils.splitSignature(signature);
+    
+    const { r, s, v, deadline } = await getNewLockRequestSignature(locksmithMaster, locksmithShop.address, contentHash, AskData);
     // new the lock
     await expect(locksmithShop.newLock(
       contentHash,
@@ -201,8 +183,6 @@ describe("LocksmithShop", function () {
     expect((await locksmithShop.asks(contentHash)).amount).to.be.eq(newAskAmount)
   });
   it("should revert set ask if operated as others", async function () {
-    const chainId = await locksmithMaster.getChainId();
-    const deadline = Math.floor(Date.now() / 1000) + 3600;
     const AskData = {
       owner: await accounts[1].getAddress(),
       token: testPaymentToken.address,
@@ -210,34 +190,9 @@ describe("LocksmithShop", function () {
       period: 3600 * 24 * 180,
       isTransferAllowed: true,
     };
-    const domain = {
-      name: "LocksmithShop",
-      version: "1",
-      chainId: chainId,
-      verifyingContract: locksmithShop.address,
-    };
     const contentHash = "QmNzSrLQW52TwnGqe2MaADT14UFJ5Mz4eHHveNceHq9KcY";
-    const msg = {
-      contentHash,
-      token: AskData.token,
-      amount: AskData.amount,
-      period: AskData.period,
-      deadline,
-    };
-    const type = {
-      NewLockRequest: [
-        { name: "contentHash", type: "string" },
-        { name: "token", type: "address" },
-        { name: "amount", type: "uint256" },
-        { name: "period", type: "uint256" },
-        { name: "deadline", type: "uint256" },
-      ],
-    };
-    const signature = await (
-      locksmithMaster as providers.JsonRpcSigner
-    )._signTypedData(domain, type, msg);
-    expect(signature).to.be.not.null;
-    const { r, s, v } = utils.splitSignature(signature);
+    
+    const { r, s, v, deadline } = await getNewLockRequestSignature(locksmithMaster, locksmithShop.address, contentHash, AskData);
     // new the lock
     await expect(locksmithShop.newLock(
       contentHash,
