@@ -235,8 +235,8 @@ describe("LocksmithShop", function () {
         deadline,
       }
     )).to.be.not.reverted;
-    await locksmithShop.connect(ownerWallet).mintKey(await accounts[8].getAddress(),contentHash)
-    // await expect(locksmithShop.connect(ownerWallet).mintKey(await accounts[8].getAddress(),contentHash)).to.be.not.reverted;
+    
+    await expect(locksmithShop.connect(ownerWallet).mintKey(await accounts[8].getAddress(),contentHash)).to.be.not.reverted;
   });
 
 
@@ -268,8 +268,74 @@ describe("LocksmithShop", function () {
   });
 
   // buy related
-  it("Pay to buy -> Mint ContentKey -> Pay the Owner workflow", async function () {});
-  it("should fail to buy if token are not enough", async function () {});
+  it("Pay to buy -> Mint ContentKey -> Pay the Owner workflow", async function () {
+    const ownerWallet = accounts[1];
+    const buyer = accounts[3];
 
-  // EIP712 Premit related
+    const amount = BigNumber.from("114514191981000000")
+
+    const AskData = {
+      owner: await ownerWallet.getAddress(),
+      token: testPaymentToken.address,
+      amount: amount.toString(),
+      period: 3600 * 24 * 180,
+      isTransferAllowed: true,
+    };
+    const contentHash = "foooooobarrrrrrr";
+    
+    const { r, s, v, deadline } = await getNewLockRequestSignature(locksmithMaster, locksmithShop.address, contentHash, AskData);
+    // new the lock
+    await expect(locksmithShop.newLock(
+      contentHash,
+      AskData,
+      {
+        r,
+        s,
+        v,
+        deadline,
+      }
+    )).to.be.not.reverted;
+
+    await testPaymentToken.mint(await buyer.getAddress(), amount);
+    await testPaymentToken.connect(buyer).approve(locksmithShop.address, amount);
+
+
+    await expect(locksmithShop.connect(buyer).buyKey(
+      contentHash,
+    )).to.be.not.reverted;
+
+    expect(await testPaymentToken.balanceOf(await ownerWallet.getAddress())).to.be.gt(0)
+  });
+  it("should fail to buy if token are not enough", async function () {
+    const ownerWallet = accounts[1];
+    const buyer = accounts[3];
+
+    const amount = BigNumber.from("114514191981000000")
+
+    const AskData = {
+      owner: await ownerWallet.getAddress(),
+      token: testPaymentToken.address,
+      amount: amount.toString(),
+      period: 3600 * 24 * 180,
+      isTransferAllowed: true,
+    };
+    const contentHash = "foooooobarrrrrrr";
+    
+    const { r, s, v, deadline } = await getNewLockRequestSignature(locksmithMaster, locksmithShop.address, contentHash, AskData);
+    // new the lock
+    await expect(locksmithShop.newLock(
+      contentHash,
+      AskData,
+      {
+        r,
+        s,
+        v,
+        deadline,
+      }
+    )).to.be.not.reverted;
+
+    await expect(locksmithShop.connect(buyer).buyKey(
+      contentHash,
+    )).to.be.revertedWith('ERC20: transfer amount exceeds balance');
+  });
 });
