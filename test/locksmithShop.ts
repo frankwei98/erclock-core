@@ -210,8 +210,60 @@ describe("LocksmithShop", function () {
   });
 
   // simpling minting key(should be owner's right only)
-  it("should good to mint new key for owner's request", async function () {});
-  it("should fail to mint if acting as other", async function () {});
+  it("should good to mint new key for owner's request", async function () {
+    const ownerWallet = accounts[1];
+    const AskData = {
+      owner: await ownerWallet.getAddress(),
+      token: testPaymentToken.address,
+      amount: BigNumber.from("114514191981000000").toString(),
+      period: 3600 * 24 * 180,
+      isTransferAllowed: true,
+    };
+    const contentHash = "foooooobarrrrrrr";
+    
+    const { r, s, v, deadline } = await getNewLockRequestSignature(locksmithMaster, locksmithShop.address, contentHash, AskData);
+    // new the lock
+    await expect(locksmithShop.newLock(
+      contentHash,
+      AskData,
+      {
+        r,
+        s,
+        v,
+        deadline,
+      }
+    )).to.be.not.reverted;
+    await locksmithShop.connect(ownerWallet).mintKey(await accounts[8].getAddress(),contentHash)
+    // await expect(locksmithShop.connect(ownerWallet).mintKey(await accounts[8].getAddress(),contentHash)).to.be.not.reverted;
+  });
+
+
+  it("should fail to mint if acting as other", async function () {
+    const ownerWallet = accounts[1];
+    const AskData = {
+      owner: await ownerWallet.getAddress(),
+      token: testPaymentToken.address,
+      amount: BigNumber.from("114514191981000000").toString(),
+      period: 3600 * 24 * 180,
+      isTransferAllowed: true,
+    };
+    const contentHash = "foooooobarrrrrrr";
+    
+    const { r, s, v, deadline } = await getNewLockRequestSignature(locksmithMaster, locksmithShop.address, contentHash, AskData);
+    // new the lock
+    await expect(locksmithShop.newLock(
+      contentHash,
+      AskData,
+      {
+        r,
+        s,
+        v,
+        deadline,
+      }
+    )).to.be.not.reverted;
+
+    await expect(locksmithShop.mintKey(await accounts[8].getAddress(),contentHash,)).to.be.reverted;
+  });
 
   // buy related
   it("Pay to buy -> Mint ContentKey -> Pay the Owner workflow", async function () {});
