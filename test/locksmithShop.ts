@@ -144,8 +144,115 @@ describe("LocksmithShop", function () {
     )).to.be.revertedWith('Locksmith::verifyNewLockRequest: sig deadline expired');
   });
 
-  it("should able to set ask", async function () {});
-  it("should fail to set ask if operated as others", async function () {});
+  it("should able to set ask", async function () {
+    const chainId = await locksmithMaster.getChainId();
+    const deadline = Math.floor(Date.now() / 1000) + 3600;
+    const AskData = {
+      owner: await accounts[1].getAddress(),
+      token: testPaymentToken.address,
+      amount: BigNumber.from("114514191981000000").toString(),
+      period: 3600 * 24 * 180,
+      isTransferAllowed: true,
+    };
+    const domain = {
+      name: "LocksmithShop",
+      version: "1",
+      chainId: chainId,
+      verifyingContract: locksmithShop.address,
+    };
+    const contentHash = "QmNzSrLQW52TwnGqe2MaADT14UFJ5Mz4eHHveNceHq9KcY";
+    const msg = {
+      contentHash,
+      token: AskData.token,
+      amount: AskData.amount,
+      period: AskData.period,
+      deadline,
+    };
+    const type = {
+      NewLockRequest: [
+        { name: "contentHash", type: "string" },
+        { name: "token", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "period", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+      ],
+    };
+    const signature = await (
+      locksmithMaster as providers.JsonRpcSigner
+    )._signTypedData(domain, type, msg);
+    expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+    // new the lock
+    await expect(locksmithShop.newLock(
+      contentHash,
+      AskData,
+      {
+        r,
+        s,
+        v,
+        deadline,
+      }
+    )).to.be.not.reverted;
+    // and set ask of the lock again
+    const newAskAmount = 19198100000
+    await expect(
+      locksmithShop.connect(accounts[1]).setAsk(contentHash, { ...AskData, amount: newAskAmount })
+    ).to.be.not.reverted;
+    expect((await locksmithShop.asks(contentHash)).amount).to.be.eq(newAskAmount)
+  });
+  it("should revert set ask if operated as others", async function () {
+    const chainId = await locksmithMaster.getChainId();
+    const deadline = Math.floor(Date.now() / 1000) + 3600;
+    const AskData = {
+      owner: await accounts[1].getAddress(),
+      token: testPaymentToken.address,
+      amount: BigNumber.from("114514191981000000").toString(),
+      period: 3600 * 24 * 180,
+      isTransferAllowed: true,
+    };
+    const domain = {
+      name: "LocksmithShop",
+      version: "1",
+      chainId: chainId,
+      verifyingContract: locksmithShop.address,
+    };
+    const contentHash = "QmNzSrLQW52TwnGqe2MaADT14UFJ5Mz4eHHveNceHq9KcY";
+    const msg = {
+      contentHash,
+      token: AskData.token,
+      amount: AskData.amount,
+      period: AskData.period,
+      deadline,
+    };
+    const type = {
+      NewLockRequest: [
+        { name: "contentHash", type: "string" },
+        { name: "token", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "period", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+      ],
+    };
+    const signature = await (
+      locksmithMaster as providers.JsonRpcSigner
+    )._signTypedData(domain, type, msg);
+    expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+    // new the lock
+    await expect(locksmithShop.newLock(
+      contentHash,
+      AskData,
+      {
+        r,
+        s,
+        v,
+        deadline,
+      }
+    )).to.be.not.reverted;
+    // and set ask of the lock again
+    const newAskAmount = 19198100000
+    await expect(locksmithShop.setAsk(contentHash, { ...AskData, amount: newAskAmount })).to.be.revertedWith('SET_ASK::EITHER OWNER OR EMPTY');
+  });
 
   // simpling minting key(should be owner's right only)
   it("should good to mint new key for owner's request", async function () {});
