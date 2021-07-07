@@ -171,33 +171,6 @@ contract LocksmithShop is ILocksmithShop {
         isSigValid = isLocksmith[recoveredSigner];
     }
 
-    function whoSignNewLockRequest(
-        string memory contentHash,
-        IUnlock.Ask memory _newAsk,
-        IUnlock.EIP712Signature memory sig
-    ) public view returns (address recoveredSigner) {
-        require(
-            sig.deadline == 0 || sig.deadline >= block.timestamp,
-            "Locksmith::verifyNewLockRequest: sig deadline expired"
-        );
-        bytes32 digest = keccak256(
-            abi.encodePacked(
-                "\x19\x01",
-                DOMAIN_SEPARATOR,
-                keccak256(
-                    abi.encode(
-                        VERIFY_TYPEHASH,
-                        _newAsk.token,
-                        _newAsk.amount,
-                        _newAsk.period,
-                        sig.deadline
-                    )
-                )
-            )
-        );
-        recoveredSigner = ecrecover(digest, sig.v, sig.r, sig.s);
-    }
-
     function newLock(
         string memory contentHash,
         IUnlock.Ask memory _newAsk,

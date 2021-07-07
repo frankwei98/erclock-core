@@ -87,24 +87,47 @@ describe("LocksmithShop", function () {
         deadline,
       }
     );
-    const local_recover = recoverTypedSignature({
-      sig: signature,
-      data: {
-        domain,
-        types: {
-          EIP712Domain: [
-            { name: "name", type: "string" },
-            { name: "version", type: "string" },
-            { name: "chainId", type: "uint256" },
-            { name: "verifyingContract", type: "address" },
-          ],
-          ...type,
-        },
-        primaryType: "NewLockRequest",
-        message: msg,
-      },
-    });
-    const whoSignNewLockRequest = await locksmithShop.whoSignNewLockRequest(
+    expect(isSigValid).to.be.true;
+  });
+
+  it("should failed to new a lock with outdated approval", async function () {
+    const chainId = await locksmithMaster.getChainId();
+    // which is 3600 sec before
+    const deadline = Math.floor(Date.now() / 1000) - 3600;
+    const AskData = {
+      owner: await accounts[1].getAddress(),
+      token: testPaymentToken.address,
+      amount: BigNumber.from("114514191981000000").toString(),
+      period: 3600 * 24 * 180,
+      isTransferAllowed: true,
+    };
+    const domain = {
+      name: "LocksmithShop",
+      version: "1",
+      chainId: chainId,
+      verifyingContract: locksmithShop.address,
+    };
+    const contentHash = "";
+    const msg = {
+      token: AskData.token,
+      amount: AskData.amount,
+      period: AskData.period,
+      deadline,
+    };
+    const type = {
+      NewLockRequest: [
+        { name: "token", type: "address" },
+        { name: "amount", type: "uint256" },
+        { name: "period", type: "uint256" },
+        { name: "deadline", type: "uint256" },
+      ],
+    };
+    const signature = await (
+      locksmithMaster as providers.JsonRpcSigner
+    )._signTypedData(domain, type, msg);
+    expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+    await expect(locksmithShop.verifyNewLockRequest(
       contentHash,
       AskData,
       {
@@ -113,13 +136,8 @@ describe("LocksmithShop", function () {
         v,
         deadline,
       }
-    );
-    console.info("whoSignNewLockRequest", whoSignNewLockRequest);
-    console.info("signer wallet: ", await locksmithMaster.getAddress());
-    console.info("local_recover", local_recover);
-    expect(isSigValid).to.be.be.true;
+    )).to.be.revertedWith('Locksmith::verifyNewLockRequest: sig deadline expired');
   });
-  it("should failed to new a lock with outdated approval", async function () {});
 
   it("should able to set ask", async function () {});
   it("should fail to set ask if operated as others", async function () {});
