@@ -1,7 +1,7 @@
 import chai from "chai";
 import { solidity } from "ethereum-waffle";
 import { ethers } from "hardhat";
-import type { Signer, Contract } from "ethers";
+import { Signer, utils, providers } from "ethers";
 import type { ContentKey } from "../typechain/ContentKey";
 chai.use(solidity);
 
@@ -102,5 +102,59 @@ describe("ContentKey", function () {
     const tokenIds = await contentKey.contentToTokenIds(keyData.contentHash);
     // the matched tokenIds length should eq accounts.length
     chai.expect(tokenIds.length).to.be.eq(accounts.length);
+  });
+
+  // EIP712 Premit related
+  it("should good to transfer with Permit", async function () {
+    const chainId = await minter.getChainId();
+    const deadline = Math.floor(Date.now() / 1000) + 3600;
+    const keyData = {
+      expireAt: Math.floor(Date.now() / 1000) + 3600 * 24 * 180,
+      transferable: true,
+      contentHash: "foobar",
+    };
+    const tokenOwner = await accounts[1].getAddress();
+    await contentKey.mint(tokenOwner, keyData);
+    const spender = await accounts[2].getAddress();
+    const nonce = await contentKey.permitNonces(spender, 0);
+    const msg = {
+      spender,
+      tokenId: 0,
+      nonce: nonce.toNumber(),
+      deadline: deadline,
+    };
+
+    const signature = await (accounts[1] as providers.JsonRpcSigner)._signTypedData(
+      {
+        name: "ContentKey",
+        version: "1",
+        chainId: chainId,
+        verifyingContract: contentKey.address,
+      },
+      {
+        Permit: [
+          { name: "spender", type: "address" },
+          {
+            name: "tokenId",
+            type: "uint256",
+          },
+          { name: "nonce", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      msg
+    );
+
+    chai.expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+
+    await chai.expect(
+      contentKey.permit(spender, msg.tokenId, {
+        r,
+        s,
+        v,
+        deadline,
+      })
+    ).to.be.not.reverted;
   });
 });
