@@ -19,13 +19,14 @@ interface ILocksmithShop {
     function getChainId() external view returns (uint256 currentChainId);
 
     function verifyNewLockRequest(
-        IUnlock.KeyData memory keyData,
+        string memory contentHash,
+        IUnlock.Ask memory _newAsk,
         IUnlock.EIP712Signature memory sig
     ) external view returns (bool isSigValid);
 
     function newLock(
+        string memory contentHash,
         IUnlock.Ask memory _newAsk,
-        IUnlock.KeyData memory keyData,
         IUnlock.EIP712Signature memory sig
     ) external;
 }
@@ -34,13 +35,12 @@ contract LocksmithShop is ILocksmithShop {
     using SafeERC20 for IERC20;
     using SafeMath for uint256;
     mapping(string => IUnlock.Ask) public asks;
-    mapping(string => IUnlock.KeyData) public keyDatas;
 
     // For EIP-712
     bytes32 public DOMAIN_SEPARATOR;
     bytes32 public constant VERIFY_TYPEHASH =
         keccak256(
-            "NewKeyRequest(string contentHash,bool transferable,uint256 expireAt,uint256 deadline)"
+            "NewLockRequest(address token,uint256 amount,uint256 period,uint256 deadline)"
         );
 
     // Locksmith is a EOA in our backend
@@ -56,9 +56,9 @@ contract LocksmithShop is ILocksmithShop {
         DOMAIN_SEPARATOR = keccak256(
             abi.encode(
                 keccak256(
-                    "EIP712Domain(string name,string version,uint256 chainId,address verifyNewLockRequestingContract)"
+                    "EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"
                 ),
-                keccak256(bytes("TokenLock")),
+                keccak256(bytes("LocksmithShop")),
                 keccak256(bytes("1")),
                 _chainId,
                 address(this)
@@ -102,7 +102,7 @@ contract LocksmithShop is ILocksmithShop {
         );
 
         // mint the new key
-        _mint(msg.sender, _hash);
+        _mint(msg.sender, getKeyDataFrom(_hash));
 
         uint256 fee = ask.amount.mul(5).div(1000);
         uint256 authorCut = ask.amount.sub(fee);
@@ -144,7 +144,8 @@ contract LocksmithShop is ILocksmithShop {
      * Verify is the `sig` a valid signature that was Signed by the owner of `tokenId`
      */
     function verifyNewLockRequest(
-        IUnlock.KeyData memory keyData,
+        string memory contentHash,
+        IUnlock.Ask memory _newAsk,
         IUnlock.EIP712Signature memory sig
     ) public view override returns (bool isSigValid) {
         require(
@@ -158,9 +159,9 @@ contract LocksmithShop is ILocksmithShop {
                 keccak256(
                     abi.encode(
                         VERIFY_TYPEHASH,
-                        keyData.contentHash,
-                        keyData.transferable,
-                        keyData.expireAt,
+                        _newAsk.token,
+                        _newAsk.amount,
+                        _newAsk.period,
                         sig.deadline
                     )
                 )
@@ -170,33 +171,71 @@ contract LocksmithShop is ILocksmithShop {
         isSigValid = isLocksmith[recoveredSigner];
     }
 
-    function newLock(
+    function whoSignNewLockRequest(
+        string memory contentHash,
         IUnlock.Ask memory _newAsk,
-        IUnlock.KeyData memory keyData,
         IUnlock.EIP712Signature memory sig
-    ) public override isGoodToSetAsk(keyData.contentHash) {
+    ) public view returns (address recoveredSigner) {
         require(
-            verifyNewLockRequest(keyData, sig),
-            "Locksmith::BAD_SIG: Please contact dev team"
+            sig.deadline == 0 || sig.deadline >= block.timestamp,
+            "Locksmith::verifyNewLockRequest: sig deadline expired"
         );
-        asks[keyData.contentHash] = _newAsk;
-        keyDatas[keyData.contentHash] = keyData;
+        bytes32 digest = keccak256(
+            abi.encodePacked(
+                "\x19\x01",
+                DOMAIN_SEPARATOR,
+                keccak256(
+                    abi.encode(
+                        VERIFY_TYPEHASH,
+                        _newAsk.token,
+                        _newAsk.amount,
+                        _newAsk.period,
+                        sig.deadline
+                    )
+                )
+            )
+        );
+        recoveredSigner = ecrecover(digest, sig.v, sig.r, sig.s);
     }
 
-    function mintKey(address to, string memory _hash) public {
+    function newLock(
+        string memory contentHash,
+        IUnlock.Ask memory _newAsk,
+        IUnlock.EIP712Signature memory sig
+    ) public override isGoodToSetAsk(contentHash) {
+        require(
+            verifyNewLockRequest(contentHash, _newAsk, sig),
+            "Locksmith::BAD_SIG: Please contact dev team"
+        );
+        asks[contentHash] = _newAsk;
+    }
+
+    function getKeyDataFrom(string memory _hash)
+        public
+        view
+        returns (IUnlock.KeyData memory keyData)
+    {
+        IUnlock.Ask memory ask = asks[_hash];
+        uint256 expiration = block.timestamp + ask.period;
+        keyData = IUnlock.KeyData(expiration, ask.isTransferAllowed, _hash);
+    }
+
+    function mintKey(address to, string memory _hash)
+        public
+        returns (uint256 tokenId)
+    {
         IUnlock.Ask memory ask = asks[_hash];
         require(
             ask.owner == msg.sender,
             "Must be the owner to mintKey for free"
         );
-        _mint(to, _hash);
+        tokenId = _mint(to, getKeyDataFrom(_hash));
     }
 
-    function _mint(address to, string memory _hash)
+    function _mint(address to, IUnlock.KeyData memory keyData)
         internal
         returns (uint256 tokenId)
     {
-        IUnlock.KeyData memory keyData = keyDatas[_hash];
         return key.mint(to, keyData);
     }
 }
