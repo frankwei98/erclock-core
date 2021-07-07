@@ -58,6 +58,7 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
         );
     }
 
+
     function getChainId() public view returns (uint256 currentChainId) {
         assembly {
             currentChainId := chainid()
@@ -67,6 +68,10 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
     modifier factoryOnly() {
         require(factory == msg.sender, "Factory only");
         _;
+    }
+
+    function switchFactory(address _newFactory) public factoryOnly {
+        factory = _newFactory;
     }
 
     /**

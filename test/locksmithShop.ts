@@ -69,6 +69,8 @@ describe("LocksmithShop", function () {
   
     locksmithShop = (await shop.deployed()) as LocksmithShop;
     testPaymentToken = (await token.deployed()) as MintableERC20;
+
+    await contentKey.switchFactory(locksmithShop.address);
   });
 
   it("should `locksmithMaster` is in `isLocksmith`", async function () {
