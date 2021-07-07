@@ -32,6 +32,18 @@ describe("ContentKey", function () {
     chai.expect(balance.toString()).to.eq("1");
   });
 
+  it("should fail the mint if acting as non-minter", async function () {
+    // Do something with the accounts
+    const keyData = {
+      expireAt: Math.floor(Date.now() / 1000),
+      transferable: true,
+      contentHash: "foobar",
+    };
+    const addr = await accounts[0].getAddress();
+    await chai.expect(contentKey.connect(accounts[1]).mint(addr, keyData)).to
+      .reverted;
+  });
+
   it("should transfer when enabled", async function () {
     // Do something with the accounts
     const keyData = {
