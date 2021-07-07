@@ -6,6 +6,8 @@ interface IUnlock {
         address owner;
         address token;
         uint256 amount;
+        uint256 period;
+        bool isTransferAllowed;
     }
 
     // The struct for a key
