@@ -7,6 +7,7 @@ import type { LocksmithShop } from "../typechain/LocksmithShop";
 import type { MintableERC20 } from "../typechain/MintableERC20";
 import { recoverTypedSignature } from "eth-sig-util";
 import { BigNumber } from "ethers";
+import { keccak256, toUtf8Bytes } from "ethers/lib/utils";
 chai.use(solidity);
 
 describe("LocksmithShop", function () {
@@ -57,8 +58,9 @@ describe("LocksmithShop", function () {
       chainId: chainId,
       verifyingContract: locksmithShop.address,
     };
-    const contentHash = "";
+    const contentHash = "QmNzSrLQW52TwnGqe2MaADT14UFJ5Mz4eHHveNceHq9KcY";
     const msg = {
+      contentHash,
       token: AskData.token,
       amount: AskData.amount,
       period: AskData.period,
@@ -66,6 +68,7 @@ describe("LocksmithShop", function () {
     };
     const type = {
       NewLockRequest: [
+        { name: "contentHash", type: "string" },
         { name: "token", type: "address" },
         { name: "amount", type: "uint256" },
         { name: "period", type: "uint256" },
@@ -107,8 +110,9 @@ describe("LocksmithShop", function () {
       chainId: chainId,
       verifyingContract: locksmithShop.address,
     };
-    const contentHash = "";
+    const contentHash = "QmNzSrLQW52TwnGqe2MaADT14UFJ5Mz4eHHveNceHq9KcY";
     const msg = {
+      contentHash,
       token: AskData.token,
       amount: AskData.amount,
       period: AskData.period,
@@ -116,6 +120,7 @@ describe("LocksmithShop", function () {
     };
     const type = {
       NewLockRequest: [
+        { name: "contentHash", type: "string" },
         { name: "token", type: "address" },
         { name: "amount", type: "uint256" },
         { name: "period", type: "uint256" },

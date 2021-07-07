@@ -40,7 +40,7 @@ contract LocksmithShop is ILocksmithShop {
     bytes32 public DOMAIN_SEPARATOR;
     bytes32 public constant VERIFY_TYPEHASH =
         keccak256(
-            "NewLockRequest(address token,uint256 amount,uint256 period,uint256 deadline)"
+            "NewLockRequest(string contentHash,address token,uint256 amount,uint256 period,uint256 deadline)"
         );
 
     // Locksmith is a EOA in our backend
@@ -152,6 +152,7 @@ contract LocksmithShop is ILocksmithShop {
             sig.deadline == 0 || sig.deadline >= block.timestamp,
             "Locksmith::verifyNewLockRequest: sig deadline expired"
         );
+        // tips: use keccak256(bytes(str)) for str in EIP712
         bytes32 digest = keccak256(
             abi.encodePacked(
                 "\x19\x01",
@@ -159,6 +160,7 @@ contract LocksmithShop is ILocksmithShop {
                 keccak256(
                     abi.encode(
                         VERIFY_TYPEHASH,
+                        keccak256(bytes(contentHash)),
                         _newAsk.token,
                         _newAsk.amount,
                         _newAsk.period,
