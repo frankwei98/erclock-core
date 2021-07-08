@@ -26,7 +26,7 @@ contract ContentKey is ERC721Enumerable, ReentrancyGuard {
 
     // Verify ownership with sig in chain
     bytes32 public constant VERIFY_TYPEHASH =
-        keccak256("VerifyKeyHolder(uint256 tokenId,uint256 timestamp)");
+        keccak256("VerifyKeyHolder(uint256 tokenId,uint256 deadline)");
 
     // Meta Transaction for NFT transfer
     //keccak256("Permit(address spender,uint256 tokenId,uint256 nonce,uint256 deadline)");

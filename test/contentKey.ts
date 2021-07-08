@@ -159,4 +159,190 @@ describe("ContentKey", function () {
       })
     ).to.be.not.reverted;
   });
+
+  it("Pass the Unlock Request if signer have the key", async function () {
+    const chainId = await minter.getChainId();
+    const deadline = getDeadline()
+    const keyData = {
+      expireAt: getDeadline(3600 * 24 * 180),
+      transferable: true,
+      contentHash: "foobar",
+    };
+    const tokenOwner = await accounts[1].getAddress();
+    await contentKey.mint(tokenOwner, keyData);
+
+    const msg = {
+      tokenId: 0,
+      deadline: deadline,
+    };
+
+    const signature = await (accounts[1] as providers.JsonRpcSigner)._signTypedData(
+      {
+        name: "ContentKey",
+        version: "1",
+        chainId: chainId,
+        verifyingContract: contentKey.address,
+      },
+      {
+        VerifyKeyHolder: [
+          { name: "tokenId", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      msg
+    );
+
+    chai.expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+
+    chai.expect(
+      await contentKey.verifyKeyHolder(msg.tokenId, {
+        r,
+        s,
+        v,
+        deadline,
+      })
+    ).to.be.true;
+  });
+
+  it("Fail the Unlock Request if key are not hodl", async function () {
+    const chainId = await minter.getChainId();
+    const deadline = getDeadline()
+    const keyData = {
+      expireAt: Math.floor(Date.now() / 1000) + 3600 * 24 * 180,
+      transferable: true,
+      contentHash: "foobar",
+    };
+    const tokenOwner = await accounts[1].getAddress();
+    await contentKey.mint(tokenOwner, keyData);
+    const msg = {
+      tokenId: 0,
+      deadline: deadline,
+    };
+
+    // signing instead of the `tokenOwner` 
+    const signature = await (accounts[5] as providers.JsonRpcSigner)._signTypedData(
+      {
+        name: "ContentKey",
+        version: "1",
+        chainId: chainId,
+        verifyingContract: contentKey.address,
+      },
+      {
+        VerifyKeyHolder: [
+          { name: "tokenId", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      msg
+    );
+
+    chai.expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+
+
+    // should return false if sig was not from the `tokenOwner`
+    chai.expect(
+      await contentKey.verifyKeyHolder(msg.tokenId, {
+        r,
+        s,
+        v,
+        deadline,
+      })
+    ).to.be.false;
+  });
+
+  it("Fail Unlock Request if key was expired", async function () {
+    const chainId = await minter.getChainId();
+    // deadline >= 1 day + now should fail
+    const deadline = getDeadline((3600 * 24 * 1) + 1);
+    const keyData = {
+      // expired
+      expireAt: getDeadline(-1 * (3600 * 24 * 180)),
+      transferable: true,
+      contentHash: "foobar",
+    };
+    const tokenOwner = await accounts[1].getAddress();
+    await contentKey.mint(tokenOwner, keyData);
+
+    const msg = {
+      tokenId: 0,
+      deadline: deadline,
+    };
+
+    const signature = await (accounts[1] as providers.JsonRpcSigner)._signTypedData(
+      {
+        name: "ContentKey",
+        version: "1",
+        chainId: chainId,
+        verifyingContract: contentKey.address,
+      },
+      {
+        VerifyKeyHolder: [
+          { name: "tokenId", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      msg
+    );
+
+    chai.expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+
+    await chai.expect(
+      contentKey.verifyKeyHolder(msg.tokenId, {
+        r,
+        s,
+        v,
+        deadline,
+      })
+    ).to.be.revertedWith("ContentKey::verifyKeyHolder: The Key was expired");
+  });
+
+  it("Fail Unlock Request if deadline was too long", async function () {
+    const chainId = await minter.getChainId();
+    // deadline >= 1 day + now should fail, 1 min more for lag in blockchain
+    const deadline = getDeadline((3600 * 24) + 60);
+    const keyData = {
+      expireAt: getDeadline(3600 * 24 * 180),
+      transferable: true,
+      contentHash: "foobar",
+    };
+    const tokenOwner = await accounts[1].getAddress();
+    await contentKey.mint(tokenOwner, keyData);
+
+    const msg = {
+      tokenId: 0,
+      deadline: deadline,
+    };
+
+    const signature = await (accounts[1] as providers.JsonRpcSigner)._signTypedData(
+      {
+        name: "ContentKey",
+        version: "1",
+        chainId: chainId,
+        verifyingContract: contentKey.address,
+      },
+      {
+        VerifyKeyHolder: [
+          { name: "tokenId", type: "uint256" },
+          { name: "deadline", type: "uint256" },
+        ],
+      },
+      msg
+    );
+
+    chai.expect(signature).to.be.not.null;
+    const { r, s, v } = utils.splitSignature(signature);
+
+    await chai.expect(
+      contentKey.verifyKeyHolder(msg.tokenId, {
+        r,
+        s,
+        v,
+        deadline,
+      })
+    ).to.be.revertedWith('Key::verifyKeyHolder: sig expired');
+  });
+
 });
