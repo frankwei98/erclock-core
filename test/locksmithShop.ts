@@ -79,7 +79,27 @@ describe("LocksmithShop", function () {
     ).to.be.true;
   });
 
-  it("should good to new a lock with locksmith's approval", async function () {
+
+  it("add new member into `isLocksmith`", async function () {
+    const newMember = accounts[1]
+    await expect(locksmithShop.setNewLockSmith(await newMember.getAddress())).to.be.not.reverted;
+    chai.expect(
+      await locksmithShop.isLocksmith(await newMember.getAddress())
+    ).to.be.true;
+  });
+
+  it("revoke someone in `isLocksmith`", async function () {
+    const newMember = accounts[1]
+    await expect(locksmithShop.setNewLockSmith(await newMember.getAddress())).to.be.not.reverted;
+    await expect(locksmithShop.revokeLockSmith(await newMember.getAddress())).to.be.not.reverted;
+    chai.expect(
+      await locksmithShop.isLocksmith(await newMember.getAddress())
+    ).to.be.false;
+  });
+
+
+
+  it("new a lock with locksmith's approval", async function () {
     const AskData = {
       owner: await accounts[1].getAddress(),
       token: testPaymentToken.address,

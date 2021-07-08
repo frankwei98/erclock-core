@@ -125,6 +125,13 @@ contract LocksmithShop is ILocksmithShop {
         isLocksmith[newLocksmith] = true;
     }
 
+    function revokeLockSmith(address newLocksmith)
+        public
+        mustBeLockSmith
+    {
+        isLocksmith[newLocksmith] = false;
+    }
+
     /**
      * EIP-712 Related Functions
      */
