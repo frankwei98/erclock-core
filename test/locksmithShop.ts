@@ -305,6 +305,8 @@ describe("LocksmithShop", function () {
     )).to.be.not.reverted;
 
     expect(await testPaymentToken.balanceOf(await ownerWallet.getAddress())).to.be.gt(0)
+    expect(await testPaymentToken.balanceOf(await locksmithShop.feeTo())).to.be.gt(0)
+    expect(await testPaymentToken.balanceOf(await buyer.getAddress())).to.be.eq(0)
   });
   it("should fail to buy if token are not enough", async function () {
     const ownerWallet = accounts[1];
