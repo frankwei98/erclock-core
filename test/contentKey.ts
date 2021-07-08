@@ -5,6 +5,8 @@ import { Signer, utils, providers } from "ethers";
 import type { ContentKey } from "../typechain/ContentKey";
 chai.use(solidity);
 
+const getDeadline = (howManySecond = 3600) => Math.floor(Date.now() / 1000) + howManySecond;
+
 describe("ContentKey", function () {
   let accounts: Signer[];
   let minter: Signer;
@@ -107,7 +109,7 @@ describe("ContentKey", function () {
   // EIP712 Premit related
   it("should good to transfer with Permit", async function () {
     const chainId = await minter.getChainId();
-    const deadline = Math.floor(Date.now() / 1000) + 3600;
+    const deadline = getDeadline()
     const keyData = {
       expireAt: Math.floor(Date.now() / 1000) + 3600 * 24 * 180,
       transferable: true,
